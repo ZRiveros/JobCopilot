@@ -17,22 +17,7 @@ public sealed class JobAdService(IAppDbContextFactory dbFactory, MatchingService
 
         var total = await query.CountAsync(cancellationToken);
 
-        var ordered = filter.Sort switch
-        {
-            JobAdSort.Newest => query
-                .OrderByDescending(ad => ad.PublishedAt ?? ad.FirstSeenAt)
-                .ThenBy(ad => ad.Id),
-            JobAdSort.Deadline => query
-                .OrderBy(ad => ad.ApplicationDeadline == null)
-                .ThenBy(ad => ad.ApplicationDeadline)
-                .ThenBy(ad => ad.Id),
-            _ => query
-                .OrderByDescending(ad => ad.MatchScore)
-                .ThenByDescending(ad => ad.PublishedAt ?? ad.FirstSeenAt)
-                .ThenBy(ad => ad.Id),
-        };
-
-        var items = await ordered
+        var items = await ApplySort(query, filter.Sort)
             .Skip(Math.Max(filter.Skip, 0))
             .Take(Math.Clamp(filter.Take, 1, MaxPageSize))
             .Select(ad => new JobAdSummary
@@ -133,7 +118,25 @@ public sealed class JobAdService(IAppDbContextFactory dbFactory, MatchingService
         return SkillGapReport.From(rows.Select(row => new AdSkills(row.MatchedSkills, row.MissingSkills)));
     }
 
-    private static IQueryable<JobAd> ApplyFilter(IQueryable<JobAd> query, JobAdFilter filter, DateTimeOffset now)
+    internal static IOrderedQueryable<JobAd> ApplySort(IQueryable<JobAd> query, JobAdSort sort) => sort switch
+    {
+        JobAdSort.Newest => query
+            .OrderByDescending(ad => ad.PublishedAt ?? ad.FirstSeenAt)
+            .ThenBy(ad => ad.Id),
+
+        // Soonest deadline first; ads without a deadline last.
+        JobAdSort.Deadline => query
+            .OrderBy(ad => ad.ApplicationDeadline == null)
+            .ThenBy(ad => ad.ApplicationDeadline)
+            .ThenBy(ad => ad.Id),
+
+        _ => query
+            .OrderByDescending(ad => ad.MatchScore)
+            .ThenByDescending(ad => ad.PublishedAt ?? ad.FirstSeenAt)
+            .ThenBy(ad => ad.Id),
+    };
+
+    internal static IQueryable<JobAd> ApplyFilter(IQueryable<JobAd> query, JobAdFilter filter, DateTimeOffset now)
     {
         query = filter.View switch
         {

@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="JobCopilot.Application.Tests" />
+    <InternalsVisibleTo Include="JobCopilot.Infrastructure.Tests" />
   </ItemGroup>
 
 </Project>
