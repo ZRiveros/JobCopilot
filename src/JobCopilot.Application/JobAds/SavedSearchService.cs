@@ -57,13 +57,15 @@ public sealed class SavedSearchService(IAppDbContextFactory dbFactory, TimeProvi
         }
 
         string[] eastGothland = ["0581", "0580"]; // Norrköping, Linköping
+
+        // Searches are listed by creation time; a millisecond apart keeps the seed order stable.
         var now = timeProvider.GetUtcNow();
 
         db.SavedSearches.AddRange(
             SavedSearch.Create(".NET i Norrköping/Linköping", ".NET", eastGothland, remoteOnly: false, now),
-            SavedSearch.Create("C# i Norrköping/Linköping", "C#", eastGothland, remoteOnly: false, now.AddTicks(1)),
-            SavedSearch.Create("Blazor i hela Sverige", "Blazor", [], remoteOnly: false, now.AddTicks(2)),
-            SavedSearch.Create(".NET på distans", ".NET", [], remoteOnly: true, now.AddTicks(3)));
+            SavedSearch.Create("C# i Norrköping/Linköping", "C#", eastGothland, remoteOnly: false, now.AddMilliseconds(1)),
+            SavedSearch.Create("Blazor i hela Sverige", "Blazor", [], remoteOnly: false, now.AddMilliseconds(2)),
+            SavedSearch.Create(".NET på distans", ".NET", [], remoteOnly: true, now.AddMilliseconds(3)));
 
         await db.SaveChangesAsync(cancellationToken);
     }

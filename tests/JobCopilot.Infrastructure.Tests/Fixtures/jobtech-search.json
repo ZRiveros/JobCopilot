@@ -1,0 +1,110 @@
+{
+  "total": { "value": 3 },
+  "positions": 3,
+  "query_time_in_millis": 1,
+  "result_time_in_millis": 9,
+  "stats": [],
+  "freetext_concepts": { "skill": [".net"] },
+  "hits": [
+    {
+      "relevance": 1.0,
+      "id": "31629336",
+      "external_id": null,
+      "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/31629336",
+      "logo_url": null,
+      "headline": ".NET Developer",
+      "application_deadline": "2026-11-28T23:59:59",
+      "number_of_vacancies": 1,
+      "description": {
+        "text": "Software Engineer (C# / .NET)\nWe are looking for a Software Engineer with strong C# expertise.",
+        "text_formatted": "<p><strong>Software Engineer (C# / .NET)</strong></p>",
+        "company_information": null
+      },
+      "employment_type": { "concept_id": "sTu5_NBQ_udq", "label": "Tidsbegränsad anställning", "legacy_ams_taxonomy_id": null },
+      "salary_type": { "concept_id": "oG8G_9cW_nRf", "label": "Fast månads- vecko- eller timlön", "legacy_ams_taxonomy_id": "1" },
+      "working_hours_type": { "concept_id": "6YE1_gAC_R2G", "label": "Heltid", "legacy_ams_taxonomy_id": "1" },
+      "scope_of_work": { "min": 100, "max": 100 },
+      "employer": {
+        "phone_number": null,
+        "email": null,
+        "url": null,
+        "organization_number": "5590000000",
+        "name": "Exempel Consulting AB",
+        "workplace": "Exempel Consulting AB"
+      },
+      "application_details": {
+        "information": null,
+        "reference": null,
+        "email": "jobb@example.com",
+        "via_af": false,
+        "url": "https://example.com/apply/8586908",
+        "other": null
+      },
+      "experience_required": true,
+      "access_to_own_car": false,
+      "driving_license_required": false,
+      "driving_license": null,
+      "occupation": { "concept_id": "wNG8_Rsg_RQc", "label": "Systemutvecklare", "legacy_ams_taxonomy_id": "5996" },
+      "workplace_model": { "concept_id": "ZxwM_gtz_n61", "label": "Arbete på plats" },
+      "workplace_address": {
+        "municipality": "Norrköping",
+        "municipality_code": "0581",
+        "region": "Östergötlands län",
+        "region_code": "05",
+        "country": "Sverige",
+        "street_address": null,
+        "postcode": null,
+        "city": null,
+        "coordinates": [ null, null ]
+      },
+      "must_have": {
+        "skills": [ { "weight": 10, "concept_id": "abc", "label": "C#, programmeringsspråk", "legacy_ams_taxonomy_id": "1" } ],
+        "languages": [ { "weight": 10, "concept_id": "NVxJ_hLg_TYS", "label": "Engelska", "legacy_ams_taxonomy_id": "283" } ],
+        "work_experiences": [],
+        "education": [],
+        "education_level": []
+      },
+      "nice_to_have": {
+        "skills": [
+          { "weight": 5, "concept_id": "def", "label": "Docker", "legacy_ams_taxonomy_id": "2" },
+          { "weight": 5, "concept_id": "abc", "label": "C#, programmeringsspråk", "legacy_ams_taxonomy_id": "1" }
+        ],
+        "languages": [],
+        "work_experiences": [],
+        "education": [],
+        "education_level": []
+      },
+      "application_contacts": [],
+      "publication_date": "2026-10-22T00:00:00",
+      "last_publication_date": "2026-11-28T23:59:59",
+      "removed": false,
+      "removed_date": null,
+      "source_type": "VIA_ANNONSERA",
+      "timestamp": 1792616950677
+    },
+    {
+      "id": "31700001",
+      "headline": "Blazor-utvecklare",
+      "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/31700001",
+      "application_deadline": null,
+      "description": { "text": null },
+      "employment_type": null,
+      "working_hours_type": null,
+      "employer": { "name": null, "workplace": "Kommunens IT-enhet" },
+      "application_details": { "email": null, "url": null },
+      "experience_required": null,
+      "occupation": null,
+      "workplace_address": { "municipality": null, "region": null },
+      "must_have": null,
+      "nice_to_have": null,
+      "publication_date": "2026-06-15T12:00:00",
+      "removed": false
+    },
+    {
+      "id": "31700002",
+      "headline": "Borttagen annons",
+      "description": { "text": "Finns inte längre." },
+      "removed": true
+    }
+  ]
+}

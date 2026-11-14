@@ -8,7 +8,8 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <!-- Test names use Method_Scenario_Expectation; async test methods do not need the Async suffix. -->
-    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!-- xUnit1051 wants TestContext.Current.CancellationToken on every awaited call; that adds noise without value here. -->
+    <NoWarn>$(NoWarn);CA1707;xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
