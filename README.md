@@ -139,10 +139,8 @@ JobCopilot pratar aldrig själv med en AI-tjänst. Människan står i mitten av 
 Krav: [.NET 10 SDK](https://dotnet.microsoft.com/download) och en PostgreSQL-server (14 eller senare).
 
 ```bash
-# 1. En databas. Med Docker:
-docker run -d --name jobcopilot-db -p 5432:5432 \
-  -e POSTGRES_USER=jobcopilot -e POSTGRES_PASSWORD=jobcopilot -e POSTGRES_DB=jobcopilot \
-  postgres:17-alpine
+# 1. En databas. Med Docker (en rad, fungerar i både bash och PowerShell):
+docker run -d --name jobcopilot-db -p 5432:5432 -e POSTGRES_USER=jobcopilot -e POSTGRES_PASSWORD=jobcopilot -e POSTGRES_DB=jobcopilot postgres:17-alpine
 
 # 2. Ett inloggningslösenord (minst 8 tecken), sparat utanför repot
 dotnet user-secrets set "Auth:Password" "välj-ett-lösenord" --project src/JobCopilot.Web
