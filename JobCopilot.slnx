@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/JobCopilot.Application/JobCopilot.Application.csproj" />
+    <Project Path="src/JobCopilot.Domain/JobCopilot.Domain.csproj" />
+    <Project Path="src/JobCopilot.Infrastructure/JobCopilot.Infrastructure.csproj" />
+    <Project Path="src/JobCopilot.Web/JobCopilot.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JobCopilot.Application.Tests/JobCopilot.Application.Tests.csproj" />
+    <Project Path="tests/JobCopilot.Domain.Tests/JobCopilot.Domain.Tests.csproj" />
+    <Project Path="tests/JobCopilot.Infrastructure.Tests/JobCopilot.Infrastructure.Tests.csproj" />
+    <Project Path="tests/JobCopilot.Web.Tests/JobCopilot.Web.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="CLAUDE.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="README.md" />
+  </Folder>
+</Solution>

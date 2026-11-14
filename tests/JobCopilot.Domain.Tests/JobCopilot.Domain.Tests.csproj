@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JobCopilot.Domain\JobCopilot.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

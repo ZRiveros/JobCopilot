@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>jobcopilot-web-7d1f3c52</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\JobCopilot.Application\JobCopilot.Application.csproj" />
+    <ProjectReference Include="..\JobCopilot.Infrastructure\JobCopilot.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="JobCopilot.Web.Tests" />
+    <InternalsVisibleTo Include="JobCopilot.Infrastructure.Tests" />
+  </ItemGroup>
+
+</Project>
