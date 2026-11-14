@@ -1,0 +1,80 @@
+# JobCopilot in production: the web app plus (optionally) its own PostgreSQL.
+#
+#   cp .env.example .env      # set the passwords
+#   docker compose up -d --build
+#
+# To use a PostgreSQL server you already run, clear COMPOSE_PROFILES in .env and set
+# JOBCOPILOT_DB_CONNECTION instead – then only the web container starts.
+# Requires Docker Compose 2.20 or later (for "required: false").
+
+name: jobcopilot
+
+services:
+  web:
+    build: .
+    image: jobcopilot:latest
+    restart: unless-stopped
+    ports:
+      - "${JOBCOPILOT_PORT:-8080}:8080"
+    environment:
+      # Falls back to the bundled database. The pool is capped well below the server's connection limit.
+      ConnectionStrings__Default: "${JOBCOPILOT_DB_CONNECTION:-Host=postgres;Port=5432;Database=jobcopilot;Username=jobcopilot;Password=${POSTGRES_PASSWORD:-};Maximum Pool Size=10}"
+      Auth__Password: "${JOBCOPILOT_PASSWORD:?Set JOBCOPILOT_PASSWORD in .env}"
+      Fetch__IntervalMinutes: "${FETCH_INTERVAL_MINUTES:-60}"
+      # Set BEHIND_PROXY=true when a reverse proxy terminates TLS in front of the app.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "${BEHIND_PROXY:-false}"
+      TZ: Europe/Stockholm
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+    extra_hosts:
+      # Lets JOBCOPILOT_DB_CONNECTION point at a database on the Docker host (Host=host.docker.internal).
+      - "host.docker.internal:host-gateway"
+    # The server is shared with other services: cap what this one may take.
+    mem_limit: 384m
+    cpus: 1.0
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # The runtime image has no curl or wget; bash can open the socket itself.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /healthz HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:17-alpine
+    profiles: ["bundled-db"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: jobcopilot
+      POSTGRES_USER: jobcopilot
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-}"
+    # Small footprint: one user and a few thousand rows do not need PostgreSQL's server defaults.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - max_connections=20
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=16MB
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    mem_limit: 192m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobcopilot -d jobcopilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # No published port: only the web container can reach the database.
+
+volumes:
+  postgres-data:

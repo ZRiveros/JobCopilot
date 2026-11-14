@@ -1,0 +1,14 @@
+# Keep the build context small and secrets out of the image.
+**/bin/
+**/obj/
+**/.vs/
+.git/
+.github/
+.env
+.env.*
+!.env.example
+tests/
+docs/
+*.md
+docker-compose*.yml
+Dockerfile
