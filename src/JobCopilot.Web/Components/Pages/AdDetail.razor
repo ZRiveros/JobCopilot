@@ -1,0 +1,193 @@
+@page "/annonser/{Id:guid}"
+@inject JobAdService AdService
+@inject ApplicationService ApplicationService
+@inject NavigationManager Navigation
+@inject TimeProvider Time
+
+<PageTitle>@(_ad?.Headline ?? "Annons") – JobCopilot</PageTitle>
+
+@if (_loading)
+{
+    <p class="muted">Laddar …</p>
+}
+else if (_ad is null)
+{
+    <div class="empty">
+        <h1>Annonsen finns inte</h1>
+        <a class="btn btn-primary" href="/">Till annonserna</a>
+    </div>
+}
+else
+{
+    <div class="page-header">
+        <p class="small"><a href="/">← Alla annonser</a></p>
+        <div class="row-between">
+            <div>
+                <h1>@_ad.Headline</h1>
+                <p class="muted">
+                    @_ad.EmployerName
+                    @if (!string.IsNullOrWhiteSpace(_ad.Municipality))
+                    {
+                        <text> · @_ad.Municipality</text>
+                    }
+                </p>
+            </div>
+            <ScoreBadge Score="_ad.MatchScore" />
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <section class="card">
+            <h2>Annonstext</h2>
+            @* Ad text comes from an external source: rendered as plain text, never as HTML. *@
+            <div class="ad-description">@_ad.Description</div>
+        </section>
+
+        <aside class="stack">
+            <section class="card stack">
+                @if (_ad.ApplyUrl is { } applyUrl)
+                {
+                    <a class="btn btn-primary" href="@applyUrl" target="_blank" rel="noopener noreferrer">Till ansökan ↗</a>
+                }
+                @if (_ad.WebpageUrl is { } webpageUrl && webpageUrl != _ad.ApplyUrl)
+                {
+                    <a class="btn" href="@webpageUrl" target="_blank" rel="noopener noreferrer">Visa originalannonsen ↗</a>
+                }
+                @if (!string.IsNullOrWhiteSpace(_ad.ApplicationEmail))
+                {
+                    <p class="small muted" style="margin: 0">Ansökan via e-post: <a href="mailto:@_ad.ApplicationEmail">@_ad.ApplicationEmail</a></p>
+                }
+
+                @if (_ad.Application is { } application)
+                {
+                    <a class="btn" href="/ansokningar/@application.Id">Öppna ansökan (@Labels.Of(application.Status))</a>
+                }
+                else
+                {
+                    <button type="button" class="btn" @onclick="SaveAsync">Spara och skapa ansökan</button>
+                }
+                <button type="button" class="btn btn-ghost" @onclick="ToggleHiddenAsync">
+                    @(_ad.IsHidden ? "Visa annonsen igen" : "Dölj annonsen")
+                </button>
+            </section>
+
+            <section class="card">
+                <h2>Varför @_ad.MatchScore&nbsp;%?</h2>
+                @if (_ad.MatchedSkills.Count == 0 && _ad.MissingSkills.Count == 0)
+                {
+                    <p class="muted small">Annonsen nämner inga skills som JobCopilot känner igen, så den kan inte poängsättas.</p>
+                }
+                else
+                {
+                    <h3>Matchar din profil (@_ad.MatchedSkills.Count)</h3>
+                    @if (_ad.MatchedSkills.Count == 0)
+                    {
+                        <p class="muted small">Inget av det annonsen efterfrågar finns i din profil ännu.</p>
+                    }
+                    <SkillChips Matched="_ad.MatchedSkills" Missing="[]" />
+
+                    <h3 style="margin-top: .9rem">Saknas i din profil (@_ad.MissingSkills.Count)</h3>
+                    @if (_ad.MissingSkills.Count == 0)
+                    {
+                        <p class="muted small">Du täcker allt som annonsen nämner.</p>
+                    }
+                    <SkillChips Matched="[]" Missing="_ad.MissingSkills" />
+
+                    @if (_ad.Seniority == SeniorityHint.Junior)
+                    {
+                        <p class="small" style="margin-top: .9rem">Annonsen riktar sig till juniora utvecklare: +@JobMatcher.JuniorBonus poäng.</p>
+                    }
+                    else if (_ad.Seniority == SeniorityHint.Senior)
+                    {
+                        <p class="small" style="margin-top: .9rem">Rubriken tyder på en senior roll: −@JobMatcher.SeniorPenalty poäng.</p>
+                    }
+
+                    <p class="muted small" style="margin: .9rem 0 0">
+                        Poängen är andelen av annonsens efterfrågade skills som finns i din profil.
+                        Skills i rubriken väger tyngst, sedan arbetsgivarens angivna krav, sedan övrig text.
+                    </p>
+                }
+            </section>
+
+            <section class="card">
+                <h2>Om annonsen</h2>
+                <dl class="small" style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem">
+                    @foreach (var (label, value) in Facts(_ad))
+                    {
+                        <dt class="muted">@label</dt>
+                        <dd style="margin: 0">@value</dd>
+                    }
+                </dl>
+            </section>
+        </aside>
+    </div>
+}
+
+@code {
+    private JobAd? _ad;
+    private bool _loading = true;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _ad = await AdService.GetAsync(Id);
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (await ApplicationService.SaveAdAsync(Id) is { } applicationId)
+        {
+            Navigation.NavigateTo($"/ansokningar/{applicationId}");
+        }
+    }
+
+    private async Task ToggleHiddenAsync()
+    {
+        if (_ad is null)
+        {
+            return;
+        }
+
+        await AdService.SetHiddenAsync(Id, !_ad.IsHidden);
+        _ad = await AdService.GetAsync(Id);
+    }
+
+    private IEnumerable<(string Label, string Value)> Facts(JobAd ad)
+    {
+        if (Format.Deadline(ad.ApplicationDeadline, Time.GetUtcNow()) is { } deadline)
+        {
+            yield return ("Ansökan", deadline);
+        }
+
+        if (ad.PublishedAt is not null)
+        {
+            yield return ("Publicerad", Format.Date(ad.PublishedAt));
+        }
+
+        if (!string.IsNullOrWhiteSpace(ad.EmploymentType))
+        {
+            yield return ("Anställning", ad.EmploymentType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ad.WorkingHours))
+        {
+            yield return ("Omfattning", ad.WorkingHours);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ad.WorkplaceModel))
+        {
+            yield return ("Arbetsplats", ad.WorkplaceModel);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ad.Occupation))
+        {
+            yield return ("Yrke", ad.Occupation);
+        }
+
+        yield return ("Erfarenhet", ad.ExperienceRequired ? "Krävs enligt annonsen" : "Inget uttalat krav");
+        yield return ("Källa", ad.Source == JobAd.ManualSource ? "Tillagd manuellt" : "Platsbanken (JobTech)");
+    }
+}

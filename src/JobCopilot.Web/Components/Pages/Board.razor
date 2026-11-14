@@ -1,0 +1,45 @@
+@page "/ansokningar"
+@inject ApplicationService ApplicationService
+@inject TimeProvider Time
+
+<PageTitle>Ansökningar – JobCopilot</PageTitle>
+
+<div class="page-header">
+    <h1>Ansökningar</h1>
+    <p>Dra ett kort mellan kolumnerna, eller använd listan på kortet. Klicka på rubriken för att öppna ansökan.</p>
+</div>
+
+@if (_cards is null)
+{
+    <p class="muted">Laddar …</p>
+}
+else if (_cards.Count == 0)
+{
+    <div class="card empty">
+        <p>Tavlan är tom.</p>
+        <p class="small">Spara en annons från <a href="/">annonslistan</a> så hamnar den här.</p>
+    </div>
+}
+else
+{
+    <KanbanBoard Cards="_cards" Today="_today" OnMove="MoveAsync" />
+}
+
+@code {
+    private IReadOnlyList<ApplicationCard>? _cards;
+    private DateOnly _today;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _today = SwedishTime.Today(Time);
+        _cards = await ApplicationService.GetBoardAsync();
+    }
+
+    private async Task MoveAsync(KanbanBoard.CardMove move)
+    {
+        await ApplicationService.MoveAsync(move.ApplicationId, move.Status);
+        await LoadAsync();
+    }
+}

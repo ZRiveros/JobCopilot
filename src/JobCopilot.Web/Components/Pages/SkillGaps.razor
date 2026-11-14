@@ -1,0 +1,91 @@
+@page "/kompetensgap"
+@inject JobAdService AdService
+
+<PageTitle>Kompetensgap – JobCopilot</PageTitle>
+
+<div class="page-header">
+    <h1>Kompetensgap</h1>
+    <p>
+        Vad efterfrågar arbetsgivarna som du inte har i din profil? Listan räknar över alla aktuella
+        annonser (inte dolda, inte utgångna) och visar vad som skulle ge mest om du lärde dig det.
+    </p>
+</div>
+
+@if (_report is null)
+{
+    <p class="muted">Laddar …</p>
+}
+else if (_report.AdCount == 0)
+{
+    <div class="card empty">
+        <p>Det finns inga annonser att analysera ännu.</p>
+        <p class="small">Annonser hämtas enligt dina <a href="/sokningar">sökningar</a>.</p>
+    </div>
+}
+else
+{
+    <p class="muted small">Baserat på @_report.AdCount annonser. Klicka på en skill för att se annonserna som nämner den.</p>
+
+    <div class="two-columns">
+        <section class="card">
+            <h2>Saknas oftast</h2>
+            @if (_report.Missing.Count == 0)
+            {
+                <p class="muted">Din profil täcker allt som annonserna nämner.</p>
+            }
+            else
+            {
+                <ol class="bars">
+                    @foreach (var skill in _report.Missing.Take(MaxRows))
+                    {
+                        <li class="bar-row">
+                            <a href="/?skill=@Uri.EscapeDataString(skill.Skill)">@skill.Skill</a>
+                            <div class="bar-track" role="presentation">
+                                <div class="bar-fill" style="width: @Width(skill, _report.Missing)"></div>
+                            </div>
+                            <span class="muted nowrap">@skill.AdCount st · @Format.Percent(skill.Share)</span>
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+
+        <section class="card">
+            <h2>Dina mest efterfrågade skills</h2>
+            @if (_report.Matched.Count == 0)
+            {
+                <p class="muted">Inga av dina skills nämns i annonserna. Har du fyllt i <a href="/profil">profilen</a>?</p>
+            }
+            else
+            {
+                <ol class="bars">
+                    @foreach (var skill in _report.Matched.Take(MaxRows))
+                    {
+                        <li class="bar-row">
+                            <a href="/?skill=@Uri.EscapeDataString(skill.Skill)">@skill.Skill</a>
+                            <div class="bar-track" role="presentation">
+                                <div class="bar-fill good" style="width: @Width(skill, _report.Matched)"></div>
+                            </div>
+                            <span class="muted nowrap">@skill.AdCount st · @Format.Percent(skill.Share)</span>
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private const int MaxRows = 25;
+
+    private SkillGapReport? _report;
+
+    protected override async Task OnInitializedAsync() => _report = await AdService.GetSkillGapsAsync();
+
+    /// <summary>Bar length relative to the most common skill in the same list.</summary>
+    private static string Width(SkillCount skill, IReadOnlyList<SkillCount> all)
+    {
+        var percent = 100.0 * skill.AdCount / all[0].AdCount;
+        return percent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "%";
+    }
+}

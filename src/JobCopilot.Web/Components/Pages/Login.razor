@@ -1,0 +1,43 @@
+@page "/login"
+@layout EmptyLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@using JobCopilot.Web.Auth
+
+@* Rendered as plain HTML and posted as a normal form: signing in must set a cookie on an HTTP
+   response, which an interactive circuit cannot do. *@
+
+<PageTitle>Logga in – JobCopilot</PageTitle>
+
+<main class="login">
+    <form method="post" action="/account/login" class="card login-card">
+        <AntiforgeryToken />
+        <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+
+        <h1 class="brand">Job<span>Copilot</span></h1>
+
+        @if (Error == LoginError.WrongPassword)
+        {
+            <p class="alert alert-bad" role="alert">Fel lösenord. Försök igen.</p>
+        }
+        else if (Error == LoginError.TooManyAttempts)
+        {
+            <p class="alert alert-warn" role="alert">För många försök. Vänta en minut och försök igen.</p>
+        }
+
+        <div>
+            <label for="password">Lösenord</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Logga in</button>
+    </form>
+</main>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Error { get; set; }
+}

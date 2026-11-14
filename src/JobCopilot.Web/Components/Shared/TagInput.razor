@@ -1,0 +1,28 @@
+@* Edits a list of short strings as comma-separated text. *@
+<input type="text" id="@Id" value="@string.Join(", ", Values)" placeholder="@Placeholder" @onchange="OnChangedAsync" />
+
+@code {
+    private static readonly char[] Separators = [',', ';', '\n'];
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter, EditorRequired]
+    public List<string> Values { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<List<string>> ValuesChanged { get; set; }
+
+    [Parameter]
+    public string Placeholder { get; set; } = "Kommaseparerat";
+
+    private Task OnChangedAsync(ChangeEventArgs args)
+    {
+        var values = (args.Value?.ToString() ?? "")
+            .Split(Separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return ValuesChanged.InvokeAsync(values);
+    }
+}

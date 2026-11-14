@@ -1,11 +1,23 @@
 ﻿@using System.Net.Http
-@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Web
 @using static Microsoft.AspNetCore.Components.Web.RenderMode
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @using Microsoft.JSInterop
+@using JobCopilot.Application.Applications
+@using JobCopilot.Application.Common
+@using JobCopilot.Application.Documents
+@using JobCopilot.Application.JobAds
+@using JobCopilot.Application.Profiles
+@using JobCopilot.Domain.Applications
+@using JobCopilot.Domain.JobAds
+@using JobCopilot.Domain.Matching
+@using JobCopilot.Domain.Profiles
 @using JobCopilot.Web
 @using JobCopilot.Web.Components
 @using JobCopilot.Web.Components.Layout
+@using JobCopilot.Web.Components.Shared
+@using JobCopilot.Web.Fetching
+@using JobCopilot.Web.Ui

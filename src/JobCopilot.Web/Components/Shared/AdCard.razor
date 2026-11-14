@@ -1,0 +1,68 @@
+<article class="card ad-card @(Ad.IsHidden ? "is-hidden" : null)">
+    <ScoreBadge Score="Ad.MatchScore" />
+
+    <div>
+        <h3><a href="/annonser/@Ad.Id">@Ad.Headline</a></h3>
+        <p class="ad-meta">
+            @Ad.EmployerName
+            @if (!string.IsNullOrWhiteSpace(Ad.Municipality))
+            {
+                <text> · @Ad.Municipality</text>
+            }
+            @if (Format.Deadline(Ad.ApplicationDeadline, Now) is { } deadline)
+            {
+                <text> · @deadline</text>
+            }
+        </p>
+        <div class="ad-skills">
+            <SkillChips Matched="Ad.MatchedSkills" Missing="Ad.MissingSkills" Max="8" />
+            <div class="chips">
+                @if (Labels.Of(Ad.Seniority) is { } seniority)
+                {
+                    <span class="chip @(Ad.Seniority == SeniorityHint.Junior ? "chip-accent" : "chip-warn")">@seniority</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(Ad.WorkplaceModel))
+                {
+                    <span class="chip">@Ad.WorkplaceModel</span>
+                }
+                @if (Ad.ApplicationStatus is { } status)
+                {
+                    <span class="chip chip-accent">På tavlan: @Labels.Of(status)</span>
+                }
+                @if (Ad.Source == JobAd.ManualSource)
+                {
+                    <span class="chip">Tillagd manuellt</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="ad-actions">
+        @if (Ad.ApplicationId is { } applicationId)
+        {
+            <a class="btn btn-small btn-primary" href="/ansokningar/@applicationId">Öppna ansökan</a>
+        }
+        else
+        {
+            <button type="button" class="btn btn-small btn-primary" @onclick="() => OnSave.InvokeAsync(Ad)">Spara</button>
+        }
+        <button type="button" class="btn btn-small" @onclick="() => OnToggleHidden.InvokeAsync(Ad)">
+            @(Ad.IsHidden ? "Visa igen" : "Dölj")
+        </button>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public JobAdSummary Ad { get; set; } = default!;
+
+    /// <summary>The current time, used to describe the deadline.</summary>
+    [Parameter, EditorRequired]
+    public DateTimeOffset Now { get; set; }
+
+    [Parameter]
+    public EventCallback<JobAdSummary> OnSave { get; set; }
+
+    [Parameter]
+    public EventCallback<JobAdSummary> OnToggleHidden { get; set; }
+}

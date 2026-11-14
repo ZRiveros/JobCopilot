@@ -1,0 +1,81 @@
+@inject IJSRuntime JS
+
+<div class="stack">
+    <div class="row">
+        <button type="button" class="btn btn-primary" @onclick="OnCreate">
+            @(Prompt is null ? "Skapa prompt" : "Skapa prompt på nytt")
+        </button>
+        @if (Prompt is not null)
+        {
+            <button type="button" class="btn" @onclick="CopyAsync">Kopiera prompt</button>
+            <span class="muted small">@Prompt.Length.ToString("N0", SwedishTime.Culture) tecken</span>
+        }
+    </div>
+
+    @if (_copyState == CopyState.Copied)
+    {
+        <p class="alert alert-good" role="status">Prompten är kopierad. Klistra in den i valfri AI-tjänst.</p>
+    }
+    else if (_copyState == CopyState.Failed)
+    {
+        <p class="alert alert-warn" role="alert">Kunde inte kopiera automatiskt. Markera texten nedan och kopiera den själv.</p>
+    }
+
+    @if (Prompt is not null)
+    {
+        <div>
+            <label for="prompt-text">Prompt</label>
+            <textarea id="prompt-text" class="code" rows="10" readonly value="@Prompt"></textarea>
+        </div>
+    }
+</div>
+
+@code {
+    private CopyState _copyState;
+    private string? _copiedPrompt;
+
+    /// <summary>The generated prompt, or null before it has been created.</summary>
+    [Parameter]
+    public string? Prompt { get; set; }
+
+    /// <summary>Raised when the user asks for a (new) prompt.</summary>
+    [Parameter]
+    public EventCallback OnCreate { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        // A regenerated prompt has not been copied yet.
+        if (!ReferenceEquals(Prompt, _copiedPrompt))
+        {
+            _copyState = CopyState.None;
+        }
+    }
+
+    private async Task CopyAsync()
+    {
+        if (Prompt is null)
+        {
+            return;
+        }
+
+        bool copied;
+        try
+        {
+            copied = await JS.InvokeAsync<bool>("jobCopilot.copyText", Prompt);
+        }
+        catch (JSException)
+        {
+            copied = false;
+        }
+
+        _copiedPrompt = Prompt;
+        _copyState = copied ? CopyState.Copied : CopyState.Failed;
+    }
+
+    private enum CopyState
+    {
+        None,
+        Copied,
+        Failed,
+    }
+}

@@ -1,0 +1,301 @@
+@page "/"
+@implements IDisposable
+@inject JobAdService AdService
+@inject ApplicationService ApplicationService
+@inject FetchCoordinator Fetch
+@inject TimeProvider Time
+
+<PageTitle>Annonser – JobCopilot</PageTitle>
+
+<div class="page-header row-between">
+    <div>
+        <h1>Annonser</h1>
+        <p class="muted small">
+            @if (Fetch.IsRunning)
+            {
+                <text>Hämtar annonser …</text>
+            }
+            else if (Fetch.LastCompletedAt is { } completed)
+            {
+                <text>Senast hämtat @Format.DateTime(completed)</text>
+                @if (Fetch.LastRunFailed)
+                {
+                    <text> – hämtningen misslyckades, nytt försök görs automatiskt</text>
+                }
+                else if (Fetch.LastSummary is { } summary)
+                {
+                    <text> – @summary.NewAds nya</text>
+                    @if (summary.FailedSearches > 0)
+                    {
+                        <text>, @summary.FailedSearches av @summary.Searches sökningar misslyckades (<a href="/sokningar">visa</a>)</text>
+                    }
+                }
+            }
+            else
+            {
+                <text>Annonser hämtas automatiskt i bakgrunden.</text>
+            }
+        </p>
+    </div>
+    <button type="button" class="btn" disabled="@Fetch.IsRunning" @onclick="Fetch.RequestRun">Hämta nu</button>
+</div>
+
+@if (_dueFollowUps.Count > 0)
+{
+    <div class="alert alert-warn" role="status" style="margin-bottom: 1rem">
+        <strong>Dags att följa upp:</strong>
+        @foreach (var card in _dueFollowUps)
+        {
+            <a href="/ansokningar/@card.Id" style="margin-left: .5rem">@card.Headline (@card.EmployerName)</a>
+        }
+    </div>
+}
+
+<section class="card" style="margin-bottom: 1rem" aria-label="Filter">
+    <div class="filters">
+        <div class="field">
+            <label for="filter-search">Sök</label>
+            <input id="filter-search" type="search" placeholder="Rubrik, arbetsgivare eller text"
+                   @bind="_search" @bind:after="ReloadAsync" />
+        </div>
+        <div class="field">
+            <label for="filter-view">Visa</label>
+            <select id="filter-view" @bind="_view" @bind:after="ReloadAsync">
+                @foreach (var view in Enum.GetValues<JobAdView>())
+                {
+                    <option value="@view">@Labels.Of(view)</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label for="filter-score">Lägsta matchning</label>
+            <select id="filter-score" @bind="_minScore" @bind:after="ReloadAsync">
+                <option value="0">Alla</option>
+                <option value="25">Minst 25 %</option>
+                <option value="50">Minst 50 %</option>
+                <option value="70">Minst 70 %</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="filter-municipality">Ort</label>
+            <select id="filter-municipality" @bind="_municipality" @bind:after="ReloadAsync">
+                <option value="">Alla orter</option>
+                @foreach (var municipality in _municipalities)
+                {
+                    <option value="@municipality">@municipality</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label for="filter-sort">Sortering</label>
+            <select id="filter-sort" @bind="_sort" @bind:after="ReloadAsync">
+                @foreach (var sort in Enum.GetValues<JobAdSort>())
+                {
+                    <option value="@sort">@Labels.Of(sort)</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="row" style="margin-top: .6rem">
+        <label class="check">
+            <input type="checkbox" @bind="_includeExpired" @bind:after="ReloadAsync" />
+            Visa även annonser där ansökningstiden gått ut
+        </label>
+        @if (!string.IsNullOrWhiteSpace(Skill))
+        {
+            <span class="chip chip-accent">
+                Nämner: @Skill
+                <a href="/" aria-label="Ta bort filtret på @Skill" style="margin-left: .3rem; text-decoration: none">×</a>
+            </span>
+        }
+        <span class="spacer"></span>
+        <span class="muted small">@_total annonser</span>
+    </div>
+</section>
+
+<details class="card" style="margin-bottom: 1rem" open="@_manualOpen" @ontoggle="args => _manualOpen = !_manualOpen">
+    <summary><strong>Lägg till en annons manuellt</strong> <span class="muted small">– för jobb du hittat någon annanstans</span></summary>
+    <div class="form-grid" style="margin-top: .75rem">
+        <div class="field">
+            <label for="manual-headline">Rubrik</label>
+            <input id="manual-headline" type="text" @bind="_manual.Headline" />
+        </div>
+        <div class="field">
+            <label for="manual-employer">Arbetsgivare</label>
+            <input id="manual-employer" type="text" @bind="_manual.EmployerName" />
+        </div>
+        <div class="field">
+            <label for="manual-municipality">Ort</label>
+            <input id="manual-municipality" type="text" @bind="_manual.Municipality" />
+        </div>
+        <div class="field">
+            <label for="manual-url">Länk</label>
+            <input id="manual-url" type="url" @bind="_manual.Url" />
+        </div>
+        <div class="field wide">
+            <label for="manual-description">Annonstext</label>
+            <textarea id="manual-description" rows="6" @bind="_manual.Description"></textarea>
+        </div>
+    </div>
+    @if (_manualError is not null)
+    {
+        <p class="alert alert-bad" role="alert" style="margin-top: .75rem">@_manualError</p>
+    }
+    <button type="button" class="btn btn-primary" style="margin-top: .75rem" @onclick="AddManualAsync">Lägg till och matcha</button>
+</details>
+
+@if (_loading)
+{
+    <p class="muted">Laddar …</p>
+}
+else if (_items.Count == 0)
+{
+    <div class="card empty">
+        <p>Inga annonser matchar filtret.</p>
+        <p class="small">
+            Nya annonser hämtas enligt dina <a href="/sokningar">sökningar</a>. Fyll i din
+            <a href="/profil">profil</a> för att få dem rankade.
+        </p>
+    </div>
+}
+else
+{
+    <ul class="ad-list">
+        @foreach (var ad in _items)
+        {
+            <li @key="ad.Id">
+                <AdCard Ad="ad" Now="_now" OnSave="SaveAsync" OnToggleHidden="ToggleHiddenAsync" />
+            </li>
+        }
+    </ul>
+
+    @if (_items.Count < _total)
+    {
+        <div class="row" style="justify-content: center; margin-top: 1rem">
+            <button type="button" class="btn" @onclick="LoadMoreAsync">Visa fler (@(_total - _items.Count) kvar)</button>
+        </div>
+    }
+}
+
+@code {
+    private const int PageSize = 30;
+
+    private readonly List<JobAdSummary> _items = [];
+    private IReadOnlyList<string> _municipalities = [];
+    private IReadOnlyList<ApplicationCard> _dueFollowUps = [];
+    private ManualAdForm _manual = new();
+    private string? _manualError;
+    private bool _manualOpen;
+    private int _total;
+    private bool _loading = true;
+    private DateTimeOffset _now;
+
+    private string _search = "";
+    private JobAdView _view = JobAdView.Active;
+    private int _minScore;
+    private string _municipality = "";
+    private JobAdSort _sort = JobAdSort.BestMatch;
+    private bool _includeExpired;
+
+    /// <summary>Set by links from the skill-gap page: only ads that mention this skill.</summary>
+    [SupplyParameterFromQuery]
+    private string? Skill { get; set; }
+
+    protected override void OnInitialized() => Fetch.Changed += OnFetchChanged;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _municipalities = await AdService.GetMunicipalitiesAsync();
+        _dueFollowUps = await ApplicationService.GetDueFollowUpsAsync();
+        await ReloadAsync();
+    }
+
+    public void Dispose() => Fetch.Changed -= OnFetchChanged;
+
+    private JobAdFilter Filter(int skip) => new()
+    {
+        Search = _search,
+        View = _view,
+        MinScore = _minScore,
+        Municipality = _municipality,
+        Skill = Skill,
+        Sort = _sort,
+        IncludeExpired = _includeExpired,
+        Skip = skip,
+        Take = PageSize,
+    };
+
+    private async Task ReloadAsync()
+    {
+        _now = Time.GetUtcNow();
+        var page = await AdService.SearchAsync(Filter(skip: 0));
+        _items.Clear();
+        _items.AddRange(page.Items);
+        _total = page.TotalCount;
+        _loading = false;
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        var page = await AdService.SearchAsync(Filter(skip: _items.Count));
+        _items.AddRange(page.Items);
+        _total = page.TotalCount;
+    }
+
+    private async Task SaveAsync(JobAdSummary ad)
+    {
+        await ApplicationService.SaveAdAsync(ad.Id);
+        await ReloadAsync();
+    }
+
+    private async Task ToggleHiddenAsync(JobAdSummary ad)
+    {
+        await AdService.SetHiddenAsync(ad.Id, !ad.IsHidden);
+        await ReloadAsync();
+    }
+
+    private async Task AddManualAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_manual.Headline) || string.IsNullOrWhiteSpace(_manual.Description))
+        {
+            _manualError = "Fyll i minst rubrik och annonstext.";
+            return;
+        }
+
+        await AdService.AddManualAsync(new ManualJobAdInput
+        {
+            Headline = _manual.Headline,
+            EmployerName = _manual.EmployerName,
+            Municipality = _manual.Municipality,
+            Url = _manual.Url,
+            Description = _manual.Description,
+        });
+
+        _manual = new ManualAdForm();
+        _manualError = null;
+        _manualOpen = false;
+        _municipalities = await AdService.GetMunicipalitiesAsync();
+        await ReloadAsync();
+    }
+
+    // Raised by the background worker on its own thread: marshal back to the circuit before touching state.
+    private void OnFetchChanged() => _ = InvokeAsync(async () =>
+    {
+        if (!Fetch.IsRunning)
+        {
+            _municipalities = await AdService.GetMunicipalitiesAsync();
+            await ReloadAsync();
+        }
+
+        StateHasChanged();
+    });
+
+    private sealed class ManualAdForm
+    {
+        public string Headline { get; set; } = "";
+        public string EmployerName { get; set; } = "";
+        public string Municipality { get; set; } = "";
+        public string Url { get; set; } = "";
+        public string Description { get; set; } = "";
+    }
+}

@@ -1,0 +1,250 @@
+@page "/sokningar"
+@implements IDisposable
+@inject SavedSearchService SearchService
+@inject FetchCoordinator Fetch
+
+<PageTitle>Sökningar – JobCopilot</PageTitle>
+
+<div class="page-header row-between">
+    <div>
+        <h1>Sökningar</h1>
+        <p>
+            Varje sökning körs mot Platsbanken (JobTech JobSearch API) vid varje hämtning. Samma annons
+            sparas bara en gång, även om flera sökningar hittar den.
+        </p>
+    </div>
+    <button type="button" class="btn" disabled="@Fetch.IsRunning" @onclick="Fetch.RequestRun">
+        @(Fetch.IsRunning ? "Hämtar …" : "Hämta nu")
+    </button>
+</div>
+
+<div class="stack">
+    @foreach (var search in _searches)
+    {
+        <section class="card" @key="search.Id">
+            <div class="row-between">
+                <div>
+                    <h2 style="margin-bottom: .2rem">@search.Name</h2>
+                    <div class="chips">
+                        @if (!string.IsNullOrWhiteSpace(search.Query))
+                        {
+                            <span class="chip chip-accent">@search.Query</span>
+                        }
+                        @foreach (var code in search.MunicipalityCodes)
+                        {
+                            <span class="chip">@Municipalities.NameOf(code)</span>
+                        }
+                        @if (search.MunicipalityCodes.Count == 0)
+                        {
+                            <span class="chip">Hela Sverige</span>
+                        }
+                        @if (search.RemoteOnly)
+                        {
+                            <span class="chip">Endast distans</span>
+                        }
+                        @if (!search.IsEnabled)
+                        {
+                            <span class="chip chip-warn">Pausad</span>
+                        }
+                    </div>
+                </div>
+                <div class="row">
+                    <button type="button" class="btn btn-small" @onclick="() => Edit(search)">Ändra</button>
+                    <button type="button" class="btn btn-small" @onclick="() => ToggleEnabledAsync(search)">
+                        @(search.IsEnabled ? "Pausa" : "Aktivera")
+                    </button>
+                    <button type="button" class="btn btn-small btn-danger" @onclick="() => DeleteAsync(search)">Ta bort</button>
+                </div>
+            </div>
+
+            <p class="small muted" style="margin: .6rem 0 0">
+                @if (search.LastRunAt is null)
+                {
+                    <text>Har inte körts ännu.</text>
+                }
+                else if (search.LastRunSucceeded == true)
+                {
+                    <text>Senast körd @Format.DateTime(search.LastRunAt): @search.LastResultCount annonser, varav @search.LastNewCount nya.</text>
+                }
+                else
+                {
+                    <span class="chip chip-missing">Misslyckades @Format.DateTime(search.LastRunAt)</span>
+                    <text> Nytt försök görs vid nästa hämtning. Teknisk orsak: @search.LastError</text>
+                }
+            </p>
+        </section>
+    }
+
+    <section class="card" id="search-form">
+        <h2>@(_form.Id is null ? "Ny sökning" : "Ändra sökning")</h2>
+        <div class="form-grid">
+            <div class="field">
+                <label for="search-query">Sökord</label>
+                <input id="search-query" type="text" placeholder="t.ex. .NET, C#, Blazor" @bind="_form.Query" />
+            </div>
+            <div class="field">
+                <label for="search-name">Namn <span class="hint">(valfritt)</span></label>
+                <input id="search-name" type="text" placeholder="Visas i listan" @bind="_form.Name" />
+            </div>
+            <div class="field">
+                <label for="search-municipality">Lägg till ort</label>
+                <select id="search-municipality" @bind="_municipalityToAdd" @bind:after="AddMunicipality">
+                    <option value="">Välj kommun …</option>
+                    @foreach (var municipality in Municipalities.All)
+                    {
+                        <option value="@municipality.Code">@municipality.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="field wide">
+                <span class="label">Orter</span>
+                <div class="chips">
+                    @if (_form.MunicipalityCodes.Count == 0)
+                    {
+                        <span class="chip">Hela Sverige</span>
+                    }
+                    @foreach (var code in _form.MunicipalityCodes)
+                    {
+                        <span class="chip chip-accent">
+                            @Municipalities.NameOf(code)
+                            <button type="button" aria-label="Ta bort @Municipalities.NameOf(code)"
+                                    @onclick="() => _form.MunicipalityCodes.Remove(code)">×</button>
+                        </span>
+                    }
+                </div>
+            </div>
+            <div class="field wide">
+                <label class="check">
+                    <input type="checkbox" @bind="_form.RemoteOnly" />
+                    Endast annonser som går att göra på distans
+                </label>
+            </div>
+        </div>
+
+        @if (_error is not null)
+        {
+            <p class="alert alert-bad" role="alert" style="margin-top: .75rem">@_error</p>
+        }
+
+        <div class="row" style="margin-top: .75rem">
+            <button type="button" class="btn btn-primary" @onclick="SaveAsync">@(_form.Id is null ? "Lägg till sökning" : "Spara ändringar")</button>
+            @if (_form.Id is not null)
+            {
+                <button type="button" class="btn" @onclick="ResetForm">Avbryt</button>
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<SavedSearch> _searches = [];
+    private SearchForm _form = new();
+    private string _municipalityToAdd = "";
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fetch.Changed += OnFetchChanged;
+        await LoadAsync();
+    }
+
+    public void Dispose() => Fetch.Changed -= OnFetchChanged;
+
+    private async Task LoadAsync() => _searches = await SearchService.GetAllAsync();
+
+    private void Edit(SavedSearch search)
+    {
+        _error = null;
+        _form = new SearchForm
+        {
+            Id = search.Id,
+            Name = search.Name,
+            Query = search.Query,
+            MunicipalityCodes = [.. search.MunicipalityCodes],
+            RemoteOnly = search.RemoteOnly,
+            IsEnabled = search.IsEnabled,
+        };
+    }
+
+    private void ResetForm()
+    {
+        _form = new SearchForm();
+        _error = null;
+    }
+
+    private void AddMunicipality()
+    {
+        if (_municipalityToAdd.Length > 0 && !_form.MunicipalityCodes.Contains(_municipalityToAdd))
+        {
+            _form.MunicipalityCodes.Add(_municipalityToAdd);
+        }
+
+        // Back to the placeholder so the same list can be used to add the next one.
+        _municipalityToAdd = "";
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Query) && _form.MunicipalityCodes.Count == 0)
+        {
+            _error = "Ange ett sökord eller välj minst en ort.";
+            return;
+        }
+
+        await SearchService.SaveAsync(_form.ToInput());
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task ToggleEnabledAsync(SavedSearch search)
+    {
+        await SearchService.SaveAsync(new SavedSearchInput
+        {
+            Id = search.Id,
+            Name = search.Name,
+            Query = search.Query,
+            MunicipalityCodes = search.MunicipalityCodes,
+            RemoteOnly = search.RemoteOnly,
+            IsEnabled = !search.IsEnabled,
+        });
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(SavedSearch search)
+    {
+        await SearchService.DeleteAsync(search.Id);
+        if (_form.Id == search.Id)
+        {
+            ResetForm();
+        }
+
+        await LoadAsync();
+    }
+
+    // Raised on the worker's thread; refresh the "last run" lines when a fetch starts or ends.
+    private void OnFetchChanged() => _ = InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private sealed class SearchForm
+    {
+        public Guid? Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Query { get; set; } = "";
+        public List<string> MunicipalityCodes { get; set; } = [];
+        public bool RemoteOnly { get; set; }
+        public bool IsEnabled { get; set; } = true;
+
+        public SavedSearchInput ToInput() => new()
+        {
+            Id = Id,
+            Name = Name,
+            Query = Query,
+            MunicipalityCodes = MunicipalityCodes,
+            RemoteOnly = RemoteOnly,
+            IsEnabled = IsEnabled,
+        };
+    }
+}

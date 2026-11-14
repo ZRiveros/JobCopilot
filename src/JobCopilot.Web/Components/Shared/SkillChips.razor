@@ -1,0 +1,43 @@
+@* Matched and missing skills as coloured chips. With Max set, long lists are cut with a "+n". *@
+@if (Matched.Count > 0)
+{
+    <ul class="chips" aria-label="Matchar din profil">
+        @foreach (var skill in Visible(Matched))
+        {
+            <li class="chip chip-match">@skill</li>
+        }
+        @if (Hidden(Matched) > 0)
+        {
+            <li class="chip chip-more">+@Hidden(Matched)</li>
+        }
+    </ul>
+}
+@if (Missing.Count > 0)
+{
+    <ul class="chips" aria-label="Saknas i din profil">
+        @foreach (var skill in Visible(Missing))
+        {
+            <li class="chip chip-missing">@skill</li>
+        }
+        @if (Hidden(Missing) > 0)
+        {
+            <li class="chip chip-more">+@Hidden(Missing)</li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Matched { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Missing { get; set; } = [];
+
+    /// <summary>Maximum number of chips per list; null shows all.</summary>
+    [Parameter]
+    public int? Max { get; set; }
+
+    private IEnumerable<string> Visible(IReadOnlyList<string> skills) => Max is { } max ? skills.Take(max) : skills;
+
+    private int Hidden(IReadOnlyList<string> skills) => Max is { } max ? Math.Max(skills.Count - max, 0) : 0;
+}

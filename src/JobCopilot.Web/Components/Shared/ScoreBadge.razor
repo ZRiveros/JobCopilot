@@ -1,0 +1,7 @@
+<span class="score score-@Format.ScoreTier(Score)" title="Matchning: @Score av 100">@Score&nbsp;%</span>
+
+@code {
+    /// <summary>Match score, 0–100.</summary>
+    [Parameter, EditorRequired]
+    public int Score { get; set; }
+}

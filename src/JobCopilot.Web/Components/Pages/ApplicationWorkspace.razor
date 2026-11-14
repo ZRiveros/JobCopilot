@@ -1,0 +1,390 @@
+@page "/ansokningar/{Id:guid}"
+@inject ApplicationService ApplicationService
+@inject ProfileService ProfileService
+@inject NavigationManager Navigation
+@inject TimeProvider Time
+
+<PageTitle>@(_application?.JobAd.Headline ?? "Ansökan") – JobCopilot</PageTitle>
+
+@if (_loading)
+{
+    <p class="muted">Laddar …</p>
+}
+else if (_application is null)
+{
+    <div class="empty">
+        <h1>Ansökan finns inte</h1>
+        <a class="btn btn-primary" href="/ansokningar">Till tavlan</a>
+    </div>
+}
+else
+{
+    var ad = _application.JobAd;
+
+    <div class="page-header">
+        <p class="small"><a href="/ansokningar">← Ansökningar</a></p>
+        <div class="row-between">
+            <div>
+                <h1>@ad.Headline</h1>
+                <p class="muted">
+                    @ad.EmployerName
+                    @if (!string.IsNullOrWhiteSpace(ad.Municipality))
+                    {
+                        <text> · @ad.Municipality</text>
+                    }
+                    · <a href="/annonser/@ad.Id">Visa annonsen</a>
+                </p>
+            </div>
+            <ScoreBadge Score="ad.MatchScore" />
+        </div>
+    </div>
+
+    <div class="workspace">
+        <aside class="stack">
+            <section class="card">
+                <h2>Status</h2>
+                <div class="form-grid">
+                    <div class="field wide">
+                        <label for="status">Kolumn på tavlan</label>
+                        <select id="status" @bind="_status" @bind:after="MoveAsync">
+                            @foreach (var status in Labels.BoardColumns)
+                            {
+                                <option value="@status">@Labels.Of(status)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="applied-on">Skickad</label>
+                        <input id="applied-on" type="date" @bind="_details.AppliedOn" />
+                    </div>
+                    <div class="field">
+                        <label for="interview-on">Intervju</label>
+                        <input id="interview-on" type="date" @bind="_details.InterviewOn" />
+                    </div>
+                    <div class="field wide">
+                        <label for="follow-up-on">Påminn om uppföljning</label>
+                        <input id="follow-up-on" type="date" @bind="_details.FollowUpOn" />
+                        @if (_application.IsFollowUpDue(SwedishTime.Today(Time)))
+                        {
+                            <p class="alert alert-warn small" style="margin: .4rem 0 0">Dags att följa upp den här ansökan.</p>
+                        }
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Kontaktperson</h2>
+                <div class="form-grid">
+                    <div class="field wide">
+                        <label for="contact-name">Namn</label>
+                        <input id="contact-name" type="text" @bind="_details.ContactName" />
+                    </div>
+                    <div class="field">
+                        <label for="contact-email">E-post</label>
+                        <input id="contact-email" type="email" @bind="_details.ContactEmail" />
+                    </div>
+                    <div class="field">
+                        <label for="contact-phone">Telefon</label>
+                        <input id="contact-phone" type="tel" @bind="_details.ContactPhone" />
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <label for="notes">Anteckningar</label>
+                <textarea id="notes" rows="6" @bind="_details.Notes"></textarea>
+                <div class="row" style="margin-top: .75rem">
+                    <button type="button" class="btn btn-primary" @onclick="SaveDetailsAsync">Spara uppgifter</button>
+                    @if (_detailsSaved)
+                    {
+                        <span class="muted small" role="status">Sparat</span>
+                    }
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Ta bort</h2>
+                <p class="muted small">Tar bort kortet från tavlan tillsammans med alla sparade versioner. Annonsen finns kvar.</p>
+                @if (_confirmDelete)
+                {
+                    <div class="row">
+                        <button type="button" class="btn btn-danger" @onclick="DeleteAsync">Ja, ta bort</button>
+                        <button type="button" class="btn" @onclick="() => _confirmDelete = false">Avbryt</button>
+                    </div>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-danger" @onclick="() => _confirmDelete = true">Ta bort ansökan</button>
+                }
+            </section>
+        </aside>
+
+        <div class="steps">
+            <section class="card">
+                <h2><span class="step-number">1</span>Skapa prompt</h2>
+                <p class="muted small">
+                    JobCopilot anropar ingen AI. Prompten innehåller din masterprofil, annonsen och reglerna –
+                    kopiera den till den AI-tjänst du själv väljer. Dina kontaktuppgifter skickas inte med.
+                </p>
+                @if (_profileIsEmpty)
+                {
+                    <p class="alert alert-warn">
+                        Din masterprofil är tom, så modellen har inget att utgå från.
+                        <a href="/profil">Fyll i profilen</a> först.
+                    </p>
+                }
+                <PromptPanel Prompt="_prompt" OnCreate="CreatePromptAsync" />
+            </section>
+
+            <section class="card">
+                <h2><span class="step-number">2</span>Klistra in svaret</h2>
+                <ResponseImport OnImported="Import" HasUnsavedEdits="IsDirty" />
+            </section>
+
+            <section class="card">
+                <div class="card-title">
+                    <h2><span class="step-number">3</span>Granska och redigera</h2>
+                    <span class="muted small">
+                        @if (CurrentVersion is { } current)
+                        {
+                            <text>Version @current.Number@(IsDirty ? " – ändrad, inte sparad" : "")</text>
+                        }
+                        else if (IsDirty)
+                        {
+                            <text>Inte sparad ännu</text>
+                        }
+                    </span>
+                </div>
+
+                <p class="alert alert-info small">
+                    Läs igenom allt innan du skickar. Du ansvarar för att varje påstående stämmer – ta bort
+                    sådant som inte finns i din profil.
+                </p>
+
+                <div class="tabs" role="tablist">
+                    <button type="button" class="tab" role="tab" aria-selected="@(_tab == DocumentKind.Cv ? "true" : "false")"
+                            @onclick="() => _tab = DocumentKind.Cv">CV</button>
+                    <button type="button" class="tab" role="tab" aria-selected="@(_tab == DocumentKind.CoverLetter ? "true" : "false")"
+                            @onclick="() => _tab = DocumentKind.CoverLetter">Personligt brev</button>
+                </div>
+
+                @if (_tab == DocumentKind.Cv)
+                {
+                    <div class="editor">
+                        <div>
+                            <label for="cv-editor">CV <span class="hint">(## rubrik, ### post, - punkt, **fetstil**)</span></label>
+                            <textarea id="cv-editor" class="code" @bind="_cv" @bind:event="oninput"></textarea>
+                        </div>
+                        <div>
+                            <span class="label">Förhandsvisning</span>
+                            <MarkdownView Markdown="@_cv" />
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="editor">
+                        <div>
+                            <label for="letter-editor">Personligt brev</label>
+                            <textarea id="letter-editor" class="code" @bind="_letter" @bind:event="oninput"></textarea>
+                        </div>
+                        <div>
+                            <span class="label">Förhandsvisning</span>
+                            <MarkdownView Markdown="@_letter" />
+                        </div>
+                    </div>
+                }
+
+                <div class="row" style="margin-top: .75rem">
+                    <input type="text" style="max-width: 16rem" placeholder="Etikett (valfritt), t.ex. ”kortare”"
+                           aria-label="Etikett för versionen" @bind="_label" />
+                    <button type="button" class="btn btn-primary" disabled="@(!CanSave)" @onclick="SaveVersionAsync">
+                        Spara som ny version
+                    </button>
+                    @if (CurrentVersion is { } saved && !IsDirty)
+                    {
+                        <a class="btn" href="@PdfUrl(saved, DocumentKind.Cv)" download>CV som PDF</a>
+                        <a class="btn" href="@PdfUrl(saved, DocumentKind.CoverLetter)" download>Brev som PDF</a>
+                    }
+                    else if (IsDirty)
+                    {
+                        <span class="muted small">Spara en version för att exportera PDF.</span>
+                    }
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Versioner</h2>
+                @if (_application.Versions.Count == 0)
+                {
+                    <p class="muted small">Inga sparade versioner ännu. Varje gång du sparar skapas en ny – tidigare versioner ändras aldrig.</p>
+                }
+                else
+                {
+                    <ul class="version-list">
+                        @foreach (var version in _application.Versions.OrderByDescending(v => v.Number))
+                        {
+                            <li @key="version.Id" class="@(version.Id == _currentVersionId ? "is-current" : null)">
+                                <strong>Version @version.Number</strong>
+                                @if (version.Label is not null)
+                                {
+                                    <span class="chip">@version.Label</span>
+                                }
+                                <span class="muted small">@Format.DateTime(version.CreatedAt)</span>
+                                <span class="spacer"></span>
+                                <button type="button" class="btn btn-small" @onclick="() => Load(version)">Öppna i editorn</button>
+                                <a class="btn btn-small" href="@PdfUrl(version, DocumentKind.Cv)" download>CV (PDF)</a>
+                                <a class="btn btn-small" href="@PdfUrl(version, DocumentKind.CoverLetter)" download>Brev (PDF)</a>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        </div>
+    </div>
+}
+
+@code {
+    private JobApplication? _application;
+    private bool _loading = true;
+    private bool _profileIsEmpty;
+    private ApplicationStatus _status;
+    private DetailsForm _details = new();
+    private bool _detailsSaved;
+    private bool _confirmDelete;
+
+    private string? _prompt;
+    private DocumentKind _tab = DocumentKind.Cv;
+    private string _cv = "";
+    private string _letter = "";
+    private string _label = "";
+    private Guid? _currentVersionId;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private ApplicationVersion? CurrentVersion =>
+        _application?.Versions.FirstOrDefault(version => version.Id == _currentVersionId);
+
+    /// <summary>True when the editor differs from the version it was loaded from (or holds unsaved new text).</summary>
+    private bool IsDirty => CurrentVersion is { } version
+        ? _cv.Trim() != version.Cv || _letter.Trim() != version.CoverLetter
+        : !string.IsNullOrWhiteSpace(_cv) || !string.IsNullOrWhiteSpace(_letter);
+
+    private bool CanSave => IsDirty && !string.IsNullOrWhiteSpace(_cv) && !string.IsNullOrWhiteSpace(_letter);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await ReloadAsync();
+
+        if (_application?.LatestVersion is { } latest)
+        {
+            Load(latest);
+        }
+
+        _profileIsEmpty = (await ProfileService.GetAsync()).IsEmpty;
+        _loading = false;
+    }
+
+    private async Task ReloadAsync()
+    {
+        _application = await ApplicationService.GetAsync(Id);
+        if (_application is null)
+        {
+            return;
+        }
+
+        _status = _application.Status;
+        _details = DetailsForm.From(_application);
+    }
+
+    private async Task MoveAsync()
+    {
+        // Save what is in the form first; the reload below would otherwise discard unsaved notes.
+        await ApplicationService.UpdateDetailsAsync(Id, _details.ToDetails());
+        await ApplicationService.MoveAsync(Id, _status);
+
+        // Moving can fill in dates (applied, follow-up), so show what the domain decided.
+        await ReloadAsync();
+    }
+
+    private async Task SaveDetailsAsync()
+    {
+        await ApplicationService.UpdateDetailsAsync(Id, _details.ToDetails());
+        await ReloadAsync();
+        _detailsSaved = true;
+    }
+
+    private async Task DeleteAsync()
+    {
+        await ApplicationService.DeleteAsync(Id);
+        Navigation.NavigateTo("/ansokningar");
+    }
+
+    private async Task CreatePromptAsync() => _prompt = await ApplicationService.BuildPromptAsync(Id);
+
+    private void Import(ResponseParseResult result)
+    {
+        _cv = result.Cv;
+        _letter = result.CoverLetter;
+
+        // Imported text is new content, not an edit of the version that happened to be open.
+        _currentVersionId = null;
+    }
+
+    private async Task SaveVersionAsync()
+    {
+        var version = await ApplicationService.AddVersionAsync(Id, _cv, _letter, _label);
+        if (version is null)
+        {
+            return;
+        }
+
+        await ReloadAsync();
+        Load(version);
+        _label = "";
+    }
+
+    private void Load(ApplicationVersion version)
+    {
+        _cv = version.Cv;
+        _letter = version.CoverLetter;
+        _currentVersionId = version.Id;
+    }
+
+    private static string PdfUrl(ApplicationVersion version, DocumentKind kind) =>
+        $"/api/applications/versions/{version.Id}/{(kind == DocumentKind.Cv ? "cv" : "letter")}.pdf";
+
+    private sealed class DetailsForm
+    {
+        public DateOnly? AppliedOn { get; set; }
+        public DateOnly? InterviewOn { get; set; }
+        public DateOnly? FollowUpOn { get; set; }
+        public string Notes { get; set; } = "";
+        public string ContactName { get; set; } = "";
+        public string ContactEmail { get; set; } = "";
+        public string ContactPhone { get; set; } = "";
+
+        public static DetailsForm From(JobApplication application) => new()
+        {
+            AppliedOn = application.AppliedOn,
+            InterviewOn = application.InterviewOn,
+            FollowUpOn = application.FollowUpOn,
+            Notes = application.Notes,
+            ContactName = application.ContactName,
+            ContactEmail = application.ContactEmail,
+            ContactPhone = application.ContactPhone,
+        };
+
+        public ApplicationDetails ToDetails() => new()
+        {
+            AppliedOn = AppliedOn,
+            InterviewOn = InterviewOn,
+            FollowUpOn = FollowUpOn,
+            Notes = Notes,
+            ContactName = ContactName,
+            ContactEmail = ContactEmail,
+            ContactPhone = ContactPhone,
+        };
+    }
+}

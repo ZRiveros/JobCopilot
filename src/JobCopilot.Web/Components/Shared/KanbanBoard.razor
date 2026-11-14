@@ -1,0 +1,110 @@
+@* The application board. Cards move by drag-and-drop (HTML5, handled on the server) or with the
+   "Flytta till" list on each card, which also works on touch screens and with a keyboard. *@
+<div class="board">
+    @foreach (var status in Labels.BoardColumns)
+    {
+        var column = Cards.Where(card => card.Status == status).ToList();
+
+        <section class="board-column @(_dropTarget == status ? "is-drop-target" : null)"
+                 data-status="@status"
+                 @ondragover:preventDefault="true"
+                 @ondragenter="() => _dropTarget = status"
+                 @ondrop="() => DropAsync(status)">
+            <header>
+                <span>@Labels.Of(status)</span>
+                <span class="board-count">@column.Count</span>
+            </header>
+
+            <ul class="board-cards">
+                @foreach (var card in column)
+                {
+                    <li @key="card.Id">
+                        <article class="card board-card" draggable="true" data-card-id="@card.Id"
+                                 @ondragstart="() => _dragged = card"
+                                 @ondragend="ClearDrag">
+                            <h3><a href="/ansokningar/@card.Id" draggable="false">@card.Headline</a></h3>
+                            <p class="meta">@card.EmployerName</p>
+
+                            <div class="chips">
+                                <span class="chip">@card.MatchScore&nbsp;%</span>
+                                @if (card.AppliedOn is { } applied)
+                                {
+                                    <span class="chip">Skickad @Format.Date(applied)</span>
+                                }
+                                @if (card.InterviewOn is { } interview)
+                                {
+                                    <span class="chip chip-accent">Intervju @Format.Date(interview)</span>
+                                }
+                                @if (card.FollowUpOn is { } followUp)
+                                {
+                                    <span class="chip @(card.IsFollowUpDue(Today) ? "chip-warn" : null)">
+                                        Följ upp @Format.Relative(followUp, Today)
+                                    </span>
+                                }
+                                @if (card.VersionCount > 0)
+                                {
+                                    <span class="chip">@VersionText(card.VersionCount)</span>
+                                }
+                            </div>
+
+                            <select aria-label="Flytta @card.Headline" value="@card.Status"
+                                    @onchange="args => MoveAsync(card, args)">
+                                @foreach (var target in Labels.BoardColumns)
+                                {
+                                    <option value="@target">@OptionText(card, target)</option>
+                                }
+                            </select>
+                        </article>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+</div>
+
+@code {
+    private ApplicationCard? _dragged;
+    private ApplicationStatus? _dropTarget;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ApplicationCard> Cards { get; set; } = [];
+
+    /// <summary>Today's date in Swedish time; decides which follow-ups are due.</summary>
+    [Parameter, EditorRequired]
+    public DateOnly Today { get; set; }
+
+    [Parameter]
+    public EventCallback<CardMove> OnMove { get; set; }
+
+    private static string VersionText(int count) => count == 1 ? "1 version" : $"{count} versioner";
+
+    private static string OptionText(ApplicationCard card, ApplicationStatus target) =>
+        target == card.Status ? Labels.Of(target) : $"Flytta till {Labels.Of(target)}";
+
+    private async Task DropAsync(ApplicationStatus status)
+    {
+        var card = _dragged;
+        ClearDrag();
+
+        if (card is not null && card.Status != status)
+        {
+            await OnMove.InvokeAsync(new CardMove(card.Id, status));
+        }
+    }
+
+    private async Task MoveAsync(ApplicationCard card, ChangeEventArgs args)
+    {
+        if (Enum.TryParse<ApplicationStatus>(args.Value?.ToString(), out var status) && status != card.Status)
+        {
+            await OnMove.InvokeAsync(new CardMove(card.Id, status));
+        }
+    }
+
+    private void ClearDrag()
+    {
+        _dragged = null;
+        _dropTarget = null;
+    }
+
+    public sealed record CardMove(Guid ApplicationId, ApplicationStatus Status);
+}

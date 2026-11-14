@@ -1,0 +1,60 @@
+@* Renders the supported Markdown subset as elements. Text is never emitted as raw HTML. *@
+<div class="preview">
+    @foreach (var block in MarkdownParser.Parse(Markdown))
+    {
+        switch (block)
+        {
+            case HeadingBlock { Level: <= 2 } heading:
+                <h2>@Runs(heading.Runs)</h2>
+                break;
+            case HeadingBlock heading:
+                <h3>@Runs(heading.Runs)</h3>
+                break;
+            case BulletListBlock list:
+                <ul>
+                    @foreach (var item in list.Items)
+                    {
+                        <li>@Runs(item)</li>
+                    }
+                </ul>
+                break;
+            case ParagraphBlock paragraph:
+                <p>@Runs(paragraph.Runs)</p>
+                break;
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string? Markdown { get; set; }
+
+    private static RenderFragment Runs(IReadOnlyList<TextRun> runs) => builder =>
+    {
+        var sequence = 0;
+        foreach (var run in runs)
+        {
+            if (run.Bold)
+            {
+                builder.OpenElement(sequence++, "strong");
+            }
+
+            if (run.Italic)
+            {
+                builder.OpenElement(sequence++, "em");
+            }
+
+            builder.AddContent(sequence++, run.Text);
+
+            if (run.Italic)
+            {
+                builder.CloseElement();
+            }
+
+            if (run.Bold)
+            {
+                builder.CloseElement();
+            }
+        }
+    };
+}

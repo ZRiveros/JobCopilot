@@ -1,0 +1,292 @@
+@page "/profil"
+@inject ProfileService ProfileService
+
+<PageTitle>Masterprofil – JobCopilot</PageTitle>
+
+<div class="page-header">
+    <h1>Masterprofil</h1>
+    <p>
+        Skriv in allt du faktiskt har gjort och kan – hellre för mycket än för lite. Profilen är den enda
+        källan när annonser matchas och när prompten för CV och brev skapas: det som inte står här kan
+        aldrig hamna i en ansökan.
+    </p>
+</div>
+
+@if (_profile is null)
+{
+    <p class="muted">Laddar …</p>
+}
+else
+{
+    <div class="stack">
+        <section class="card">
+            <h2>Om dig</h2>
+            <div class="form-grid">
+                <div class="field">
+                    <label for="full-name">Namn</label>
+                    <input id="full-name" type="text" autocomplete="name" @bind="_profile.FullName" />
+                </div>
+                <div class="field">
+                    <label for="headline">Yrkestitel</label>
+                    <input id="headline" type="text" placeholder="t.ex. Junior .NET-utvecklare" @bind="_profile.Headline" />
+                </div>
+                <div class="field">
+                    <label for="location">Bostadsort</label>
+                    <input id="location" type="text" @bind="_profile.Location" />
+                </div>
+                <div class="field">
+                    <label for="email">E-post <span class="hint">(bara i PDF)</span></label>
+                    <input id="email" type="email" autocomplete="email" @bind="_profile.Email" />
+                </div>
+                <div class="field">
+                    <label for="phone">Telefon <span class="hint">(bara i PDF)</span></label>
+                    <input id="phone" type="tel" autocomplete="tel" @bind="_profile.Phone" />
+                </div>
+                <div class="field">
+                    <label for="linkedin">LinkedIn</label>
+                    <input id="linkedin" type="url" @bind="_profile.LinkedInUrl" />
+                </div>
+                <div class="field">
+                    <label for="github">GitHub</label>
+                    <input id="github" type="url" @bind="_profile.GitHubUrl" />
+                </div>
+                <div class="field">
+                    <label for="website">Webbplats</label>
+                    <input id="website" type="url" @bind="_profile.WebsiteUrl" />
+                </div>
+                <div class="field wide">
+                    <label for="summary">Sammanfattning</label>
+                    <textarea id="summary" rows="4" placeholder="Vem är du som utvecklare? Vad driver dig?" @bind="_profile.Summary"></textarea>
+                </div>
+                <div class="field wide">
+                    <label for="strengths">Styrkor <span class="hint">(kommaseparerat)</span></label>
+                    <TagInput Id="strengths" @bind-Values="_profile.Strengths" Placeholder="t.ex. Noggrann, Lär mig snabbt, Bra på att förklara" />
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-title">
+                <h2>Skills</h2>
+                <button type="button" class="btn btn-small" @onclick="() => _profile.Skills.Add(new Skill())">Lägg till skill</button>
+            </div>
+            <p class="muted small">
+                De här avgör matchningen mot annonser. Skriv tekniknamn som de brukar skrivas (C#, .NET, Azure) –
+                vanliga varianter som ”csharp” känns igen.
+            </p>
+
+            @foreach (var skill in _profile.Skills)
+            {
+                <div class="skill-row">
+                    <input type="text" aria-label="Skill" placeholder="Skill" @bind="skill.Name" />
+                    <input type="text" aria-label="Kategori" placeholder="Kategori, t.ex. Backend" list="skill-categories" @bind="skill.Category" />
+                    <select aria-label="Nivå" @bind="skill.Level">
+                        @foreach (var level in Enum.GetValues<SkillLevel>())
+                        {
+                            <option value="@level">@Labels.Of(level)</option>
+                        }
+                    </select>
+                    <button type="button" class="btn btn-small btn-ghost" aria-label="Ta bort @skill.Name"
+                            @onclick="() => _profile.Skills.Remove(skill)">Ta bort</button>
+                </div>
+            }
+
+            <datalist id="skill-categories">
+                @foreach (var category in _profile.Skills.Select(s => s.Category).Where(c => c.Length > 0).Distinct())
+                {
+                    <option value="@category"></option>
+                }
+            </datalist>
+
+            <div class="row" style="margin-top: .5rem">
+                <input type="text" style="max-width: 28rem" aria-label="Lägg till flera skills"
+                       placeholder="Lägg till flera på en gång: C#, SQL, Git" @bind="_bulkSkills" />
+                <button type="button" class="btn btn-small" @onclick="AddBulkSkills">Lägg till</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-title">
+                <h2>Erfarenhet</h2>
+                <button type="button" class="btn btn-small" @onclick="() => _profile.Experiences.Add(new Experience())">Lägg till erfarenhet</button>
+            </div>
+            @if (_profile.Experiences.Count == 0)
+            {
+                <p class="muted small">Anställningar, praktik (LIA), extrajobb och ideella uppdrag räknas.</p>
+            }
+            @foreach (var experience in _profile.Experiences)
+            {
+                <div class="section-item">
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Titel <input type="text" @bind="experience.Title" /></label>
+                        </div>
+                        <div class="field">
+                            <label>Arbetsgivare <input type="text" @bind="experience.Company" /></label>
+                        </div>
+                        <div class="field">
+                            <label>Ort <input type="text" @bind="experience.Location" /></label>
+                        </div>
+                        <div class="field">
+                            <label>Från <input type="month" @bind="experience.StartDate" @bind:format="yyyy-MM" /></label>
+                        </div>
+                        <div class="field">
+                            <label>Till <span class="hint">(tomt = pågående)</span> <input type="month" @bind="experience.EndDate" @bind:format="yyyy-MM" /></label>
+                        </div>
+                        <div class="field wide">
+                            <label>Vad gjorde du? <span class="hint">(en sak per rad, gärna med resultat)</span>
+                                <textarea rows="4" @bind="experience.Description"></textarea>
+                            </label>
+                        </div>
+                        <div class="field wide">
+                            <span class="label">Tekniker <span class="hint">(kommaseparerat, räknas som skills)</span></span>
+                            <TagInput @bind-Values="experience.Technologies" />
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-small btn-ghost" style="margin-top: .5rem"
+                            @onclick="() => _profile.Experiences.Remove(experience)">Ta bort erfarenheten</button>
+                </div>
+            }
+        </section>
+
+        <section class="card">
+            <div class="card-title">
+                <h2>Projekt</h2>
+                <button type="button" class="btn btn-small" @onclick="() => _profile.Projects.Add(new ProfileProject())">Lägg till projekt</button>
+            </div>
+            @if (_profile.Projects.Count == 0)
+            {
+                <p class="muted small">Egna projekt, skolprojekt och open source – särskilt viktigt när du är ny i yrket.</p>
+            }
+            @foreach (var project in _profile.Projects)
+            {
+                <div class="section-item">
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Namn <input type="text" @bind="project.Name" /></label>
+                        </div>
+                        <div class="field">
+                            <label>Länk <input type="url" @bind="project.Url" /></label>
+                        </div>
+                        <div class="field wide">
+                            <label>Beskrivning
+                                <textarea rows="3" @bind="project.Description"></textarea>
+                            </label>
+                        </div>
+                        <div class="field wide">
+                            <span class="label">Tekniker <span class="hint">(kommaseparerat, räknas som skills)</span></span>
+                            <TagInput @bind-Values="project.Technologies" />
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-small btn-ghost" style="margin-top: .5rem"
+                            @onclick="() => _profile.Projects.Remove(project)">Ta bort projektet</button>
+                </div>
+            }
+        </section>
+
+        <section class="card">
+            <div class="card-title">
+                <h2>Utbildning</h2>
+                <button type="button" class="btn btn-small" @onclick="() => _profile.Education.Add(new Education())">Lägg till utbildning</button>
+            </div>
+            @foreach (var education in _profile.Education)
+            {
+                <div class="section-item">
+                    <div class="form-grid">
+                        <div class="field">
+                            <label>Utbildning <input type="text" @bind="education.Program" /></label>
+                        </div>
+                        <div class="field">
+                            <label>Skola <input type="text" @bind="education.School" /></label>
+                        </div>
+                        <div class="field">
+                            <label>Från <input type="month" @bind="education.StartDate" @bind:format="yyyy-MM" /></label>
+                        </div>
+                        <div class="field">
+                            <label>Till <input type="month" @bind="education.EndDate" @bind:format="yyyy-MM" /></label>
+                        </div>
+                        <div class="field wide">
+                            <label>Innehåll <span class="hint">(kurser, examensarbete)</span>
+                                <textarea rows="3" @bind="education.Description"></textarea>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-small btn-ghost" style="margin-top: .5rem"
+                            @onclick="() => _profile.Education.Remove(education)">Ta bort utbildningen</button>
+                </div>
+            }
+        </section>
+
+        <section class="card">
+            <div class="card-title">
+                <h2>Språk</h2>
+                <button type="button" class="btn btn-small" @onclick="() => _profile.Languages.Add(new SpokenLanguage())">Lägg till språk</button>
+            </div>
+            @foreach (var language in _profile.Languages)
+            {
+                <div class="skill-row" style="grid-template-columns: 1fr 1fr auto">
+                    <input type="text" aria-label="Språk" placeholder="Språk" @bind="language.Name" />
+                    <input type="text" aria-label="Nivå" placeholder="Nivå, t.ex. Modersmål eller Flytande" @bind="language.Level" />
+                    <button type="button" class="btn btn-small btn-ghost" @onclick="() => _profile.Languages.Remove(language)">Ta bort</button>
+                </div>
+            }
+        </section>
+
+        <div class="sticky-actions">
+            <button type="button" class="btn btn-primary" disabled="@_saving" @onclick="SaveAsync">
+                @(_saving ? "Sparar …" : "Spara profil")
+            </button>
+            @if (_savedAt is { } savedAt)
+            {
+                <span class="muted small" role="status">Sparad @Format.DateTime(savedAt). Alla annonser har matchats om.</span>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private MasterProfile? _profile;
+    private string _bulkSkills = "";
+    private bool _saving;
+    private DateTimeOffset? _savedAt;
+
+    protected override async Task OnInitializedAsync() => _profile = await ProfileService.GetAsync();
+
+    private void AddBulkSkills()
+    {
+        if (_profile is null)
+        {
+            return;
+        }
+
+        var existing = _profile.Skills.Select(s => s.Name.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in _bulkSkills.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (existing.Add(name))
+            {
+                _profile.Skills.Add(new Skill { Name = name });
+            }
+        }
+
+        _bulkSkills = "";
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_profile is null)
+        {
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            await ProfileService.SaveAsync(_profile);
+            _savedAt = _profile.UpdatedAt;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

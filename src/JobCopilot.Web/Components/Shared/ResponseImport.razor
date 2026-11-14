@@ -1,0 +1,47 @@
+<div class="stack">
+    <div>
+        <label for="ai-response">Svar från AI-tjänsten</label>
+        <textarea id="ai-response" class="code" rows="8" @bind="_response"
+                  placeholder="Klistra in hela svaret här, inklusive markörerna."></textarea>
+    </div>
+
+    @if (_error is { } error)
+    {
+        <p class="alert alert-bad" role="alert">@Labels.Of(error)</p>
+    }
+
+    <div class="row">
+        <button type="button" class="btn btn-primary" @onclick="ImportAsync">Läs in svar</button>
+        @if (HasUnsavedEdits)
+        {
+            <span class="muted small">Ersätter texten i editorn. Spara en version först om du vill behålla den.</span>
+        }
+    </div>
+</div>
+
+@code {
+    private string _response = "";
+    private ResponseParseError? _error;
+
+    /// <summary>Raised with the split CV and cover letter when the pasted answer is valid.</summary>
+    [Parameter]
+    public EventCallback<ResponseParseResult> OnImported { get; set; }
+
+    /// <summary>Shows a warning that importing overwrites what is in the editor.</summary>
+    [Parameter]
+    public bool HasUnsavedEdits { get; set; }
+
+    private async Task ImportAsync()
+    {
+        var result = ApplicationResponseParser.Parse(_response);
+        if (!result.IsSuccess)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        _error = null;
+        _response = "";
+        await OnImported.InvokeAsync(result);
+    }
+}

@@ -1,9 +1,25 @@
 ﻿@inherits LayoutComponentBase
 
-@Body
+<header class="topbar">
+    <a class="brand" href="/">Job<span>Copilot</span></a>
+    <nav class="topnav" aria-label="Huvudmeny">
+        <NavLink href="/" Match="NavLinkMatch.All">Annonser</NavLink>
+        <NavLink href="/ansokningar">Ansökningar</NavLink>
+        <NavLink href="/kompetensgap">Kompetensgap</NavLink>
+        <NavLink href="/profil">Profil</NavLink>
+        <NavLink href="/sokningar">Sökningar</NavLink>
+    </nav>
+    <form method="post" action="/account/logout" class="logout">
+        <button type="submit" class="btn btn-ghost btn-small">Logga ut</button>
+    </form>
+</header>
+
+<main class="page">
+    @Body
+</main>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    Ett oväntat fel inträffade.
+    <a href="." class="reload">Ladda om</a>
     <span class="dismiss">🗙</span>
 </div>
