@@ -3,6 +3,13 @@
   <PropertyGroup>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <UserSecretsId>jobcopilot-web-7d1f3c52</UserSecretsId>
+    <!--
+      The package that carries _framework/blazor.web.js is only restored when the SDK sees .razor
+      files in the project. The Dockerfile restores with just the .csproj files present (to cache
+      that layer), so say it explicitly – otherwise the published app has no Blazor script and
+      every page renders blank.
+    -->
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
   </PropertyGroup>
 
   <ItemGroup>
